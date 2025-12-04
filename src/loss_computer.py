@@ -1,12 +1,14 @@
-import torch
+
+
+from config import *
 
 
 class LossComputer:
     def __init__(self, interp):
         self.interp = interp
-        self.get = self.get_seeded
+        self.get = self.get_seeded if USE_SEED else self.get_basic
 
-    def get_basic(self):
+    def get_basic(self, x):
         if self.interp.targets.get is None:
             raise RuntimeError("No targets configured")
 
@@ -15,10 +17,10 @@ class LossComputer:
 
         return activation_loss
 
-    def get_seeded(self):
-        activation_loss = self.get_basic()
+    def get_seeded(self, x):
+        activation_loss = self.get_basic(x)
 
-        distance = torch.norm(self.interp.curr_x - self.interp.seed)
+        distance = torch.norm(x - self.interp.seed)
 
         loss = activation_loss + 0.02 * distance
 

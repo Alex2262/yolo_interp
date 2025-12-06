@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from config import *
 from region_maxxing import get_region_loss, REGION
 
-LAMBDA_TV = 10  # 1
+LAMBDA_TV = 30  # 1
 LAMBDA_L2 = 0  # 1
 
 

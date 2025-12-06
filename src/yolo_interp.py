@@ -19,6 +19,9 @@ class YoloInterp:
         self.model.model.eval()
         self.model.model.to(device)
 
+        for param in self.model.model.parameters():
+            param.requires_grad = False
+
         self.layers = self.model.model.model
 
         self.conv0 = self.layers[0]
@@ -47,6 +50,8 @@ class YoloInterp:
     def print_layers(self):
         for i, layer in enumerate(self.layers):
             print(f"Layer {i}: {layer.__class__.__name__}")
+
+        print(self.model.model.stride)
 
     def set_seed(self, path):
         image = Image.open(path)

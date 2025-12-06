@@ -1,29 +1,80 @@
 
-
+import math
+import torch.nn.functional as F
 from config import *
+from region_maxxing import get_region_loss, REGION
+
+LAMBDA_TV = 10  # 1
+LAMBDA_L2 = 0  # 1
+
+
+def l2_prior(img, center=0.5):
+    return ((img - center) ** 2).mean()
+
+
+def tv_loss(img):
+    # ok so (1, 3, H, W)
+    dx = img[:, :, :, 1:] - img[:, :, :, :-1]
+    dy = img[:, :, 1:, :] - img[:, :, :-1, :]
+    return torch.abs(dx).mean() + torch.abs(dy).mean()
+
+
+def regularization(img):
+    loss = 0.0
+    loss += LAMBDA_TV * tv_loss(img)
+    loss += LAMBDA_L2 * l2_prior(img)
+    return loss
 
 
 class LossComputer:
     def __init__(self, interp):
         self.interp = interp
-        self.get = self.get_seeded if USE_SEED else self.get_basic
+        # self.get = self.get_seeded if USE_SEED else self.get_basic
+        self.get = self.get_region_and_layer
+        # self.get = self.get_region
 
-    def get_basic(self, x):
+    def get_basic(self, inp, out):
         if self.interp.targets.get is None:
             raise RuntimeError("No targets configured")
 
         targets = self.interp.targets.get()
         activation_loss = -targets.mean()
+        reg_loss = regularization(inp)
 
-        return activation_loss
+        return activation_loss + reg_loss
 
-    def get_seeded(self, x):
-        activation_loss = self.get_basic(x)
+    def get_seeded(self, inp, out):
+        base_loss = self.get_basic(inp, out)
 
-        distance = torch.norm(x - self.interp.seed)
+        distance = torch.norm(inp - self.interp.seed)
 
-        loss = activation_loss + 0.02 * distance
+        loss = base_loss + 0.02 * distance
 
         # print(distance, activation_loss, loss)
 
         return loss
+
+    def get_region(self, inp, out):
+
+        region_loss = get_region_loss(inp, out)
+
+        mask = torch.ones_like(inp)
+        x1, y1, x2, y2 = REGION
+        mask[:, :, y1:y2 + 1, x1:x2 + 1] = 0
+
+        regularization_loss = regularization(inp)
+
+        # distance = torch.norm((inp - self.interp.seed) * mask)
+
+        if USE_SEED:
+            distance = torch.norm((inp - self.interp.seed) * mask)
+        else:
+            distance = 0
+
+        return region_loss + regularization_loss + 10 * distance
+
+    def get_region_and_layer(self, inp, out):
+        region_loss = get_region_loss(inp, out)
+        base_loss = 1000 * self.get_basic(inp, out)
+
+        return region_loss + base_loss

@@ -11,6 +11,21 @@ class TargetManager:
         self.interp = interp
         self.get = None
 
+    def set_specific(self, indices):
+        module = self.interp.layers[indices[0]]
+        hook_name = f"neurons_at_{indices[0]}"
+
+        self.interp.register_hook(module, hook_name)
+
+        def get_targets_helper():
+            act = self.interp.activations[hook_name]
+            if len(indices) == 1:
+                return act[0]
+            else:
+                return act[0, indices[1:]]
+
+        self.get = get_targets_helper
+
     def set_conv_layer(self, layer_idx, channels):
 
         """

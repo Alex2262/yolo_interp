@@ -3,10 +3,10 @@ from transform import *
 
 
 INIT_RANDOM = False
-USE_SEED = True
+USE_SEED = False
 
 TRANSFORMS = [
-    Jitter(4)
+    Jitter(20)
 ]
 
 

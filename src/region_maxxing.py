@@ -1,13 +1,14 @@
 
-import math
-import torch
-
 # ******************************************************
 # CRITICAL ASSUMPTION:
 # H is divisible by 32 and W is divisible by 32
 # I think if this assumption does not hold, then YOLO only works when H == W and it does some sort of padding
 # but it is SIMPLEST if we proceed with this assumption
 # ******************************************************
+
+
+import math
+import torch
 
 
 STRIDES = [8, 16, 32]
@@ -159,7 +160,7 @@ def get_region_loss(inp, out):
         else:
             heads = [2]
 
-    loss = torch.tensor(0.0, dtype=torch.float32, device=pred.device)
+    loss = torch.tensor(0.0, dtype=torch.float32, device=inp.device)
 
     for head in heads:
         stride = STRIDES[head]
@@ -189,7 +190,7 @@ def get_region_loss(inp, out):
         for grid_y in range(grid_y_min, grid_y_max + 1):
             for grid_x in range(grid_x_min, grid_x_max + 1):
                 flattened_index = offset + grid_y * grid_w + grid_x
-                pred_cell = pred[0, :, flattened_index]
+                pred_cell = pred[0, :, flattened_index].to(inp.device)
                 pred_box = pred_cell[0:4]
                 pred_class = pred_cell[4:]
 
@@ -215,4 +216,68 @@ def get_region_loss(inp, out):
                 loss += box_loss + LAMBDA_CLASS * class_loss
 
     return loss
+
+
+def verify(inp, out):
+    _b, _c, h, w = inp.size()
+    pred = out[0]
+
+    x1, y1, x2, y2 = REGION
+
+    assert (h % 32 == 0 and w % 32 == 0)
+    assert (0 <= x1 < x2 < w and 0 <= y1 < y2 < h)
+
+    head_cells = [h // s * w // s for s in STRIDES]
+    prefix_sum = [0]
+    for s in head_cells:
+        prefix_sum.append(s + prefix_sum[-1])
+
+    flattened_dim = prefix_sum[3]
+    assert (pred.size(2) == flattened_dim)
+
+    rh = y2 - y1
+    rw = x2 - x1
+    rs = math.sqrt(rh * rw)
+
+    if rs < 32:
+        heads = [0]
+    elif rs < 128:
+        if CLASS_ID is None:
+            heads = [0, 1]
+        else:
+            heads = [1]
+    else:
+        if CLASS_ID is None:
+            heads = [0, 1, 2]
+        else:
+            heads = [2]
+
+    prob_s = 0
+    prob_cnt = 0
+
+    for head in heads:
+        stride = STRIDES[head]
+        offset = prefix_sum[head]
+
+        grid_h = h // stride
+        grid_w = w // stride
+
+        grid_x_min = x1 // stride
+        grid_x_max = x2 // stride
+
+        grid_y_min = y1 // stride
+        grid_y_max = y2 // stride
+
+        for grid_y in range(grid_y_min, grid_y_max + 1):
+            for grid_x in range(grid_x_min, grid_x_max + 1):
+                flattened_index = offset + grid_y * grid_w + grid_x
+                pred_cell = pred[0, :, flattened_index].to(inp.device)
+                pred_box = pred_cell[0:4]
+                pred_class = pred_cell[4:]
+
+                prob_s += pred_class[CLASS_ID]
+                prob_cnt += 1
+
+    return prob_s / prob_cnt
+
 

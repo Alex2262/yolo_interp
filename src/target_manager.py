@@ -5,6 +5,8 @@
 # doesn't need layer specifics and everything else can be abstracted
 #
 
+from region_maxxing import REGION
+
 
 class TargetManager:
     def __init__(self, interp):
@@ -25,6 +27,43 @@ class TargetManager:
                 return act[0, indices[1:]]
 
         self.get = get_targets_helper
+
+    def set_layers(self, layer_channel_indices):
+
+        def prep():
+            for layer_channel_idx in layer_channel_indices:
+                layer_idx = layer_channel_idx[0]
+
+                module = self.interp.layers[layer_idx]
+                hook_name = f"conv{layer_idx}"
+
+                self.interp.register_hook(module, hook_name)
+
+        def get_helper():
+            acts = []
+
+            for layer_channel_idx in layer_channel_indices:
+                layer_idx = layer_channel_idx[0]
+                channels = layer_channel_idx[1]
+
+                hook_name = f"conv{layer_idx}"
+                act = self.interp.activations[hook_name]
+
+                if channels is None:  # Case when we want all channels
+                    curr = act[0]
+                elif isinstance(channels, int):  # Case when we want only 1 specific channel
+                    curr = act[0, channels]
+                elif isinstance(channels, list):  # Case when we want multiple channels
+                    curr = act[0, channels]
+                else:
+                    raise ValueError()
+
+                acts.append(curr)
+
+            return acts
+
+        prep()
+        self.get = get_helper
 
     def set_conv_layer(self, layer_idx, channels):
 

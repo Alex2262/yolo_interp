@@ -9,6 +9,7 @@ from torchvision import transforms as T
 from src.loss_computer import LossComputer
 from src.optimizer import Optimizer
 from src.target_manager import TargetManager
+from visual_helpers import visualize_layer_filters
 
 
 class YoloInterp:
@@ -17,7 +18,6 @@ class YoloInterp:
         self.device = device
         self.model = YOLO("yolo11n.pt").to(device)
         self.model.model.eval()
-        self.model.model.to(device)
 
         for param in self.model.model.parameters():
             param.requires_grad = False
@@ -52,10 +52,11 @@ class YoloInterp:
             print(f"Layer {i}: {layer.__class__.__name__}")
 
         print(self.model.model.stride)
+        # visualize_layer_filters(self.layers[5].conv.weight.data.clone())
 
     def set_seed(self, path):
         image = Image.open(path)
         transform = T.Compose([T.Resize((224, 224)), T.ToTensor()])
         t = transform(image).unsqueeze(dim=0).to(self.device)
 
-        self.seed = t.clone().detach().requires_grad_(True)
+        self.seed = t.clone().detach().requires_grad_(True).to(self.device)

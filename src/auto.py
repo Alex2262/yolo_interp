@@ -2,9 +2,9 @@
 
 import torch
 
-from src.loss_computer import LossComputer
-from src.transform import Jitter
-from src.yolo_interp import YoloInterp
+from loss_computer import LossComputer
+from transform import Jitter
+from yolo_interp import YoloInterp
 
 from region_maxxing import verify
 

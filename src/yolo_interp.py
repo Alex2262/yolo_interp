@@ -6,9 +6,9 @@ from PIL import Image
 from torchvision import transforms as T
 
 
-from src.loss_computer import LossComputer
-from src.optimizer import Optimizer
-from src.target_manager import TargetManager
+from loss_computer import LossComputer
+from optimizer import Optimizer
+from target_manager import TargetManager
 from visual_helpers import visualize_layer_filters
 
 

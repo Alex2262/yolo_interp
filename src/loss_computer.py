@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from config import *
 from region_maxxing import get_region_loss, REGION
 
-LAMBDA_TV = 30  # 1
+LAMBDA_TV = 5 # 1
 
 
 def tv_loss(img):
@@ -23,8 +23,8 @@ class LossComputer:
     def __init__(self, interp):
         self.interp = interp
         # self.get = self.get_seeded if USE_SEED else self.get_basic
-        self.get = self.get_region_and_layer
-        # self.get = self.get_region
+        # self.get = self.get_basic # self.get_region_and_layer
+        self.get = self.get_basic # self.get_region_and_layer
 
     def get_basic(self, inp, out, params):
         if self.interp.targets.get is None:
@@ -47,7 +47,7 @@ class LossComputer:
 
         reg_loss = regularization(inp)[0]
 
-        return activation_loss + reg_loss
+        return params["LAMBDA_BASE"] * (activation_loss + reg_loss)
 
     def get_seeded(self, inp, out, params):
         base_loss = self.get_basic(inp, out, params)
@@ -85,7 +85,7 @@ class LossComputer:
 
         mask = torch.ones_like(inp)
         x1, y1, x2, y2 = REGION
-        mask[:, :, y1:y2 + 1, x1:x2 + 1] = 0
+        mask[:, :, y1:y2 + 1, x1:x2 + 1] = 0.001
         distance = torch.norm((inp - self.interp.seed) * mask)
 
-        return region_loss + params["LAMBDA_BASE"] * base_loss + params["LAMBDA_DISTANCE"] * distance
+        return region_loss + base_loss + params["LAMBDA_DISTANCE"] * distance

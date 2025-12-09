@@ -65,6 +65,18 @@ class TargetManager:
         prep()
         self.get = get_helper
 
+    def set_layer_batched(self, layer_idx):
+        module = self.interp.layers[layer_idx]
+        hook_name = f"layer{layer_idx}"
+
+        self.interp.register_hook(module, hook_name)
+
+        def helper():
+            act = self.interp.activations[hook_name]
+            return act
+
+        self.get = helper
+
     def set_conv_layer(self, layer_idx, channels):
 
         """

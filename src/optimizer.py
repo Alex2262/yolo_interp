@@ -12,8 +12,8 @@ class Optimizer:
     def __init__(self, interp):
         self.interp = interp
         self.params = {
-            "LAMBDA_BASE": 10,
-            "LAMBDA_DISTANCE": 1
+            "LAMBDA_BASE": 1000,
+            "LAMBDA_DISTANCE": 0
         }
 
         self.transforms = list(INITIAL_TRANSFORMS)
@@ -57,8 +57,8 @@ class Optimizer:
                 self.interp.curr_x.clamp_(0, 1)
 
             # prints
-            # if iteration % 10 == 0:
-            #     print(f"Iteration {iteration}: Loss = {loss}")
+            if iteration % 100 == 0:
+                print(f"Iteration {iteration}: Loss = {loss}")
 
-        # visualize_result_w_bbs(self.interp.model, self.interp.curr_x)
+        visualize_result_w_bbs(self.interp.model, self.interp.curr_x)
         return self.interp.curr_x

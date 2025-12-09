@@ -4,12 +4,85 @@ import torch
 
 from loss_computer import LossComputer, regularization
 from config import INITIAL_TRANSFORMS
-from transform import Jitter
+from visual_helpers import visualize_result_w_bbs
 from yolo_interp import YoloInterp
 
 from region_maxxing import verify, get_region_loss, REGION
+from multiprocessing import Pool, cpu_count
 
 import torch.optim as optim
+import time
+
+
+def binsearch(args):
+    layer, channel = args
+
+    interp = YoloInterp(device="cpu")
+    interp.set_seed("images/road.jpg")
+    interp.targets.set_conv_layer(layer, channel)
+
+    print(f"Running on layer {layer} channel {channel}")
+    start = time.time()
+
+    def test():
+        with torch.no_grad():
+            interp.model.model(interp.seed)
+            orig_activations = interp.targets.get()
+
+        x = interp.optimizer.run(200, 0.01)
+
+        with torch.no_grad():
+            out = interp.model.model(x)
+            post_activations = interp.targets.get()
+
+        c = torch.sum(post_activations - orig_activations).item()
+
+        p = verify(x, out).item()
+
+        if p >= 0.1:
+            return True, p, c, torch.clone(x)
+        else:
+            return False, p, c, torch.clone(x)
+
+    lo = 0
+    hi = 1000
+    eps = 5
+
+    interp.loss.get = interp.loss.get_basic
+    orig_change = test()[2]
+    interp.loss.get = interp.loss.get_region_and_layer
+
+    best_x = None
+    best_scale = 0
+    best_change = 0
+
+    while lo + eps < hi:
+        mid = (lo + hi) / 2
+
+        # print("Range for:", lo, mid, hi)
+
+        interp.optimizer.params["LAMBDA_BASE"] = mid
+
+        flag, prob, change, x_curr = test()
+
+        if flag:
+            lo = mid
+            best_scale = mid
+            best_change = change
+            best_x = x_curr
+        else:
+            hi = mid
+
+    prop_change = best_change / orig_change
+
+    if best_x is not None:
+        visualize_result_w_bbs(interp.model, best_x)
+
+    end = time.time()
+    print(f"Layer {layer} channel {channel} took {round(end - start, 3)} seconds:",
+          best_scale, best_change, orig_change, prop_change)
+
+    return prop_change
 
 
 class Auto:
@@ -90,65 +163,8 @@ class Auto:
 
         self.run_phase2(layer_channel_indices)
 
-    def bin(self, layer, channel):
-        def test():
-            self.interp.set_seed("images/road.jpg")
-            self.interp.targets.set_conv_layer(layer, channel)
-
-            with torch.no_grad():
-                self.interp.model.model(self.interp.seed)
-                orig_activations = self.interp.targets.get()
-
-            x = self.interp.optimizer.run(200, 0.01)
-
-            with torch.no_grad():
-                out = self.interp.model.model(x)
-                post_activations = self.interp.targets.get()
-
-            c = torch.sum(post_activations - orig_activations).item()
-
-            p = verify(x, out).item()
-
-            if p >= 0.1:
-                return True, p, c
-            else:
-                return False, p, c
-
-        lo = 0
-        hi = 1000
-        eps = 1
-
-        self.interp.optimizer.params["LAMBDA_BASE"] = hi
-        orig_change = test()[2]
-
-        best_scale = 0
-        best_change = 0
-
-        while lo + eps < hi:
-            mid = (lo + hi) / 2
-
-            print("RANGE:", lo, mid, hi)
-
-            self.interp.optimizer.params["LAMBDA_BASE"] = mid
-
-            flag, prob, change = test()
-
-            print(flag, prob, change)
-
-            if flag:
-                lo = mid
-                best_scale = mid
-                best_change = change
-            else:
-                hi = mid
-
-        prop_change = best_change / orig_change
-
-        print(best_scale, best_change, orig_change, prop_change)
-        return prop_change
-
     def channel_loss(self, c, inp, out, lambda_bases):
-        targets = self.interp.targets.get()[c]
+        targets = self.interp.targets.get()[c, c]
 
         activation_loss = -targets.mean()
         region_loss = get_region_loss(inp, out, c)
@@ -208,7 +224,7 @@ class Auto:
 
         def test(lambda_bases):
             self.interp.set_seed("images/road.jpg")
-            self.interp.targets.set_conv_layer(layer, None)
+            self.interp.targets.set_layer_batched(layer)
 
             with torch.no_grad():
                 self.interp.model.model(self.interp.seed)
@@ -265,15 +281,24 @@ class Auto:
         print(best, orig, prop)
 
     def search_layer(self, layer):
+        NUM_THREADS = 8
         num_channels = self.interp.layers[layer].conv.weight.shape[0]
 
-        probs = []
+        print(f"Processing {num_channels} channels")
 
-        for channel in num_channels:
-            p = self.bin(layer, channel)
-            probs.append([p, channel])
+        job_args = []
+        for ch in range(num_channels):
+            job_args.append((
+                layer,
+                ch
+            ))
 
-        sorted(probs, key=lambda x: x[0], reverse=True)
+        with Pool(processes=NUM_THREADS) as pool:
+            results = pool.map(binsearch, job_args)
+
+        props = [(results[i], i) for i in range(len(results))]
+        props = sorted(props, key=lambda x: x[0], reverse=True)
+        print(props)
 
 
 

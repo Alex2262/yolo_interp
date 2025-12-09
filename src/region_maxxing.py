@@ -15,6 +15,7 @@ STRIDES = [8, 16, 32]
 REGION = [100, 100, 150, 180]
 
 # REGION = [10, 10, 200, 200]
+USE_HEAD = None
 CLASS_ID = 0
 
 
@@ -147,18 +148,22 @@ def get_region_loss(inp, out, batch=0):
     rs = math.sqrt(rh * rw)
 
     # step 1: determine which heads to perform regression on
-    if rs < 32:
-        heads = [0]
-    elif rs < 128:
-        if CLASS_ID is None:
-            heads = [0, 1]
-        else:
-            heads = [1]
+
+    if USE_HEAD is not None:
+        heads = [USE_HEAD]
     else:
-        if CLASS_ID is None:
-            heads = [0, 1, 2]
+        if rs < 32:
+            heads = [0]
+        elif rs < 128:
+            if CLASS_ID is None:
+                heads = [0, 1]
+            else:
+                heads = [1]
         else:
-            heads = [2]
+            if CLASS_ID is None:
+                heads = [0, 1, 2]
+            else:
+                heads = [2]
 
     loss = torch.tensor(0.0, dtype=torch.float32, device=inp.device)
 

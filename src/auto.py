@@ -251,7 +251,7 @@ class Auto:
             print(los)
             print(his)
 
-            lb = torch.tensor(mids)
+            lb = torch.tensor(mids, device=self.interp.device)
             p_list, chg_tensor = test(lb)
 
             for c in range(num_channels):

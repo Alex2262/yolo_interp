@@ -24,8 +24,6 @@ def binsearch(args):
     print(f"Running on layer {layer} channel {channel}")
     start = time.time()
 
-    sample_k = 10
-
     interp.optimizer.set_initial()
 
     with torch.no_grad():
@@ -80,7 +78,8 @@ def binsearch(args):
     prop_change = best_change / orig_change
 
     if best_x is not None:
-        visualize_result_w_bbs(interp.model, best_x)
+        path = f"saved/auto_layer{layer}_{channel}"
+        visualize_result_w_bbs(interp.model, best_x, path=path, printing=False)
 
     end = time.time()
     print(f"Layer {layer} channel {channel} took {round(end - start, 3)} seconds:",

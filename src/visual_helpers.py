@@ -15,29 +15,30 @@ def visualize_result(x):
     plt.show()
 
 
-def visualize_result_w_bbs(model, x, conf_threshold=0.25):
+def visualize_result_w_bbs(model, x, conf_threshold=0.25, path=None, printing=True):
     img = T.ToPILImage()(x.squeeze(0).detach().cpu())
     results = model(x, conf=conf_threshold, verbose=False)
 
-    print(f"\n{'=' * 60}")
-    print(f"YOLO Predictions (confidence >= {conf_threshold}):")
-    print(f"{'=' * 60}")
+    if printing:
+        print(f"\n{'=' * 60}")
+        print(f"YOLO Predictions (confidence >= {conf_threshold}):")
+        print(f"{'=' * 60}")
 
-    if len(results[0].boxes) == 0:
-        print("No detections found ):(")
-    else:
-        for i, box in enumerate(results[0].boxes):
-            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-            confidence = box.conf[0].cpu().item()
-            class_id = int(box.cls[0].cpu().item())
-            class_name = results[0].names[class_id]
+        if len(results[0].boxes) == 0:
+            print("No detections found ):(")
+        else:
+            for i, box in enumerate(results[0].boxes):
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                confidence = box.conf[0].cpu().item()
+                class_id = int(box.cls[0].cpu().item())
+                class_name = results[0].names[class_id]
 
-            print(f"\nDetection {i + 1}:")
-            print(f"  Class: {class_name} (ID: {class_id})")
-            print(f"  Confidence: {confidence:.4f}")
-            print(f"  Box: [{x1:.1f}, {y1:.1f}, {x2:.1f}, {y2:.1f}]")
-            print(f"  Center: ({(x1 + x2) / 2:.1f}, {(y1 + y2) / 2:.1f})")
-            print(f"  Size: {x2 - x1:.1f} x {y2 - y1:.1f}")
+                print(f"\nDetection {i + 1}:")
+                print(f"  Class: {class_name} (ID: {class_id})")
+                print(f"  Confidence: {confidence:.4f}")
+                print(f"  Box: [{x1:.1f}, {y1:.1f}, {x2:.1f}, {y2:.1f}]")
+                print(f"  Center: ({(x1 + x2) / 2:.1f}, {(y1 + y2) / 2:.1f})")
+                print(f"  Size: {x2 - x1:.1f} x {y2 - y1:.1f}")
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
 
@@ -71,6 +72,12 @@ def visualize_result_w_bbs(model, x, conf_threshold=0.25):
         )
 
     plt.tight_layout()
+
+    if path is not None:
+        plt.savefig(path)
+        plt.close()
+        return
+
     plt.show()
 
 

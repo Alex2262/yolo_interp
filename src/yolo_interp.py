@@ -31,6 +31,8 @@ class YoloInterp:
         self.seed = None
         self.curr_x = None
 
+        self.img_shape = (128, 128)
+
         # Abstracted Managers
         self.targets = TargetManager(self)
         self.loss = LossComputer(self)

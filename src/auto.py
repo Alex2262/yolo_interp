@@ -12,23 +12,27 @@ from multiprocessing import Pool, cpu_count
 
 import torch.optim as optim
 import time
+import tqdm
 
 
 def binsearch(args):
     layer, channel = args
 
     interp = YoloInterp(device="cpu")
-    interp.set_seed("images/road.jpg")
     interp.targets.set_conv_layer(layer, channel)
 
     print(f"Running on layer {layer} channel {channel}")
     start = time.time()
 
-    def test():
-        with torch.no_grad():
-            interp.model.model(interp.seed)
-            orig_activations = interp.targets.get()
+    sample_k = 10
 
+    interp.optimizer.set_initial()
+
+    with torch.no_grad():
+        interp.model.model(interp.optimizer.initial)
+        orig_activations = interp.targets.get()
+
+    def test():
         x = interp.optimizer.run(200, 0.01)
 
         with torch.no_grad():
@@ -45,7 +49,7 @@ def binsearch(args):
             return False, p, c, torch.clone(x)
 
     lo = 0
-    hi = 1000
+    hi = 100000
     eps = 5
 
     interp.loss.get = interp.loss.get_basic
@@ -299,6 +303,20 @@ class Auto:
         props = [(results[i], i) for i in range(len(results))]
         props = sorted(props, key=lambda x: x[0], reverse=True)
         print(props)
+
+    def sl(self, layer):
+        num_channels = self.interp.layers[layer].conv.weight.shape[0]
+
+        print(f"Processing {num_channels} channels")
+
+        for ch in tqdm.tqdm(range(num_channels)):
+            self.interp.targets.set_conv_layer(layer, ch)
+            x = self.interp.optimizer.run(200, 0.01)
+            path = f"saved/layer{layer}_c{ch}"
+            visualize_result_w_bbs(self.interp.model, x, 0.25, path, False)
+
+            # print(f"Saved to {path}")
+
 
 
 

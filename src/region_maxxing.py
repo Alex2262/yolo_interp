@@ -12,7 +12,7 @@ import torch
 
 
 STRIDES = [8, 16, 32]
-REGION = [100, 100, 150, 180]
+REGION = [0, 0, 127, 127]
 
 # REGION = [10, 10, 200, 200]
 USE_HEAD = None
@@ -119,6 +119,8 @@ def get_region_loss(inp, out, batch=0):
     # print(inp.size())
 
     _b, _c, h, w = inp.size()
+
+    # print(len(out[1]), out[1][0].shape, out[1][1].shape, out[1][2].shape)
     pred = out[0]
 
     x1, y1, x2, y2 = REGION
@@ -210,8 +212,9 @@ def get_region_loss(inp, out, batch=0):
 
                     # we can do box loss with 1 - GIoU
                     giou = GIoU(tx1, ty1, tx2, ty2, px1, py1, px2, py2)
-                    box_loss = 1 - giou
+                    box_loss = 0 # 1 - giou
                     target_class = torch.tensor(CLASS_ID, dtype=torch.long, device=pred.device)
+                    # print(pred_class.sum(), pred_class.max(), pred_class.min())
 
                     class_loss = torch.nn.functional.cross_entropy(
                         pred_class.unsqueeze(0),  # Shape: (1, 80)

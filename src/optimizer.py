@@ -18,22 +18,18 @@ class Optimizer:
 
         self.transforms = list(INITIAL_TRANSFORMS)
 
+        self.initial = None
+
+    def set_initial(self):
+        if INIT_RANDOM:
+            self.initial = (torch.randn((1, 3, self.interp.img_shape[0], self.interp.img_shape[1]))
+                                  .to(self.interp.device))
+        else:
+            self.initial = self.interp.seed
+
     def run(self, num_iterations, lr):
 
-        if self.interp.seed is None:
-            raise RuntimeError("No seed image set")
-
-        if INIT_RANDOM:
-            self.interp.curr_x = torch.randn_like(self.interp.seed).to(self.interp.device).requires_grad_(True)
-        else:
-            self.interp.curr_x = self.interp.seed.detach().clone().to(self.interp.device).requires_grad_(True)
-
-            '''
-            x1, y1, x2, y2 = REGION
-            mask = torch.ones_like(self.interp.seed, dtype=torch.bool)
-            mask[:, :, y1:y2 + 1, x1:x2 + 1] = 0
-            self.interp.curr_x = torch.where(mask, self.interp.curr_x, torch.randn_like(self.interp.seed)).detach().requires_grad_(True)
-            '''
+        self.interp.curr_x = self.initial.detach().clone().to(self.interp.device).requires_grad_(True)
 
         optimizer = optim.Adam([self.interp.curr_x], lr=lr)
 
@@ -57,8 +53,8 @@ class Optimizer:
                 self.interp.curr_x.clamp_(0, 1)
 
             # prints
-            if iteration % 100 == 0:
-                print(f"Iteration {iteration}: Loss = {loss}")
+            # if iteration % 100 == 0:
+            #     print(f"Iteration {iteration}: Loss = {loss}")
 
-        visualize_result_w_bbs(self.interp.model, self.interp.curr_x)
+        # visualize_result_w_bbs(self.interp.model, self.interp.curr_x)
         return self.interp.curr_x
